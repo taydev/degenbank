@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 // base source is from an old version of https://github.com/flarebot/flarebot. thanks arsen :)
 // the entire Nashorn engine is being deprecated in future tho ( :( ) so this should probably be removed when I'm done debugging
 public class EvalCommand implements ICommand {
-    private ScriptEngineManager manager = new ScriptEngineManager();
     private static final ThreadGroup EVALS = new ThreadGroup("EvalCommand Thread Pool");
     private static final ExecutorService POOL = Executors.newCachedThreadPool(r -> new Thread(EVALS, r,
             EVALS.getName() + EVALS.activeCount()));
@@ -40,6 +39,7 @@ public class EvalCommand implements ICommand {
             "java.nio",
             "java.nio.files",
             "java.util.stream");
+    private final ScriptEngineManager manager = new ScriptEngineManager();
 
     @Override
     public void execute(User sender, Message message, MessageChannel channel, String commandString, String[] args) {
@@ -59,9 +59,9 @@ public class EvalCommand implements ICommand {
                 }
                 eResult = "```js\n" + eResult + "\n```";
                 channel.sendMessage(new EmbedBuilder()
-                                .setAuthor(sender.getName(), sender.getAvatarUrl())
-                                .addField("Code:", "```js\n" + code + "```", false)
-                                .addField("Result: ", eResult, false).build()).queue();
+                        .setAuthor(sender.getName(), sender.getAvatarUrl())
+                        .addField("Code:", "```js\n" + code + "```", false)
+                        .addField("Result: ", eResult, false).build()).queue();
             } catch (Exception e) {
                 channel.sendMessage(e.getMessage()).queue();
             }

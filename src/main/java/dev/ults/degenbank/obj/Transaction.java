@@ -6,8 +6,6 @@ import org.bson.codecs.pojo.annotations.BsonProperty;
 
 public class Transaction {
 
-    @BsonId
-    private int transactionId;
     @BsonProperty("payer_id")
     private final String payerId;
     @BsonProperty("payee_id")
@@ -16,6 +14,8 @@ public class Transaction {
     private final long value;
     @BsonProperty("note")
     private final String note;
+    @BsonId
+    private int transactionId;
 
     public Transaction(String payerId, String payeeId, long value, String note) {
         this.transactionId = -333;

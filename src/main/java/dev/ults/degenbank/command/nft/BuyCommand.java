@@ -4,17 +4,21 @@ import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
-import net.dv8tion.jda.api.EmbedBuilder;
+import dev.ults.degenbank.utils.DegenUtils;
+import dev.ults.degenbank.utils.EmbedUtils;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
-
-import java.awt.*;
 
 public class BuyCommand implements ICommand {
     @Override
     public String getCommand() {
         return "buy";
+    }
+
+    @Override
+    public String getUsage() {
+        return "-buy (nft name)";
     }
 
     @Override
@@ -25,44 +29,36 @@ public class BuyCommand implements ICommand {
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
         if (args.length != 1) {
-            channel.sendMessage(new EmbedBuilder()
-                    .setColor(Color.RED)
-                    .setTitle("Error - Invalid Syntax")
-                    .setDescription("Usage: `-" + command + " (nft name)`")
-                    .build()).queue();
-            return;
+            sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
         }
 
-        Degen degen = DegenBank.INSTANCE.getDegenById(user.getId());
-        if (degen == null) {
-            channel.sendMessage(user.getAsMention() + ", you don't have a DGN wallet! Type `-balance` to get started.").queue();
-            return;
-        }
-
-        NFT nft = DegenBank.INSTANCE.getNFTById(args[0]);
+        Degen degen = this.getDegenById(user.getId());
+        NFT nft = this.getNFTById(args[0]);
         if (nft != null) {
             if (nft.isForSale()) {
-                if (degen.removeDegenCoin(nft.getPrice())) {
-                    String id = DegenBank.INSTANCE.getNFTOwnerId(nft);
-                    Degen payee = DegenBank.INSTANCE.getDegenById(id);
-                    payee.addDegenCoin(nft.getPrice());
+                if (degen.removeDegenCoin(nft.getSalePrice())) {
+                    String id = this.getNFTOwnerId(nft);
+                    Degen payee = this.getDegenById(id);
+                    payee.addDegenCoin(nft.getSalePrice());
                     payee.removeToken(nft.getName());
                     degen.addToken(nft.getName());
-                    DegenBank.INSTANCE.storeDegen(payee);
-                    DegenBank.INSTANCE.storeDegen(degen);
+                    nft.setLastSalePrice(nft.getSalePrice());
                     nft.setForSale(!nft.isForSale());
-                    DegenBank.INSTANCE.storeNFT(nft);
-                    channel.sendMessage(user.getAsMention() + ", you have successfully purchased the `" + nft.getName() + "` NFT for " +
-                            DegenBank.INSTANCE.getBalanceFormat().format(nft.getPrice()) + " DGN!").queue();
+                    sendMessage(channel, EmbedUtils.getPingSuccessEmbed(user, "NFT Purchased",
+                            String.format("You have successfully purchased the `%s` NFT for %s!", nft.getName(),
+                                    DegenUtils.getDisplayBalance(nft.getLastSalePrice()))));
+                    // TODO: AAAAAAAAAAA \/
                     DegenBank.INSTANCE.postNFTBuy(nft, user.getId());
                 } else {
-                    channel.sendMessage(user.getAsMention() + ", you do not have enough DGN to purchase this NFT.").queue();
+                    sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Not Enough DGN",
+                            String.format("You do not have enough DGN to complete this purchase!\n\n**DGN Needed:** %s\n**You have:**%s",
+                                    DegenUtils.getDisplayBalance(nft.getSalePrice()), DegenUtils.getDisplayBalance(degen.getDegenCoinBalance()))));
                 }
             } else {
-                channel.sendMessage(user.getAsMention() + ", that NFT is not for sale!").queue();
+                sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Unavailable to Buy", "The NFT you attempted to purchase is not for sale."));
             }
         } else {
-            channel.sendMessage(user.getAsMention() + ", that NFT does not exist.").queue();
+            sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid NFT", "The NFT you attempted to buy does not exist."));
         }
     }
 }

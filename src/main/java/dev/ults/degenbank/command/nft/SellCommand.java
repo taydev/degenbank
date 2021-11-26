@@ -1,16 +1,12 @@
 package dev.ults.degenbank.command.nft;
 
-import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
 import dev.ults.degenbank.utils.EmbedUtils;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
-
-import java.awt.*;
 
 public class SellCommand implements ICommand {
     @Override
@@ -42,7 +38,11 @@ public class SellCommand implements ICommand {
                 long salePrice = nft.getSalePrice();
                 if (args.length == 2) {
                     try {
-                        salePrice = Long.parseLong(args[1]);
+                        salePrice = Math.abs(Long.parseLong(args[1]));
+                        if (salePrice <= 0) {
+                            sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value", "An NFT cannot be sold for no value."));
+                            return;
+                        }
                     } catch (NumberFormatException e) {
                         sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Syntax",
                                 String.format("The value you attempted to sell the NFT `%s` for is invalid.", nft.getName())));

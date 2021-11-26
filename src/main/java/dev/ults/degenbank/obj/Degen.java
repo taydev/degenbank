@@ -5,22 +5,19 @@ import org.bson.codecs.pojo.annotations.BsonId;
 import org.bson.codecs.pojo.annotations.BsonIgnore;
 import org.bson.codecs.pojo.annotations.BsonProperty;
 
-import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 public class Degen {
 
     @BsonId
     private final String id;
-    @BsonProperty("degen_coin_balance")
-    private long degenCoinBalance;
     @BsonProperty("owned_tokens")
     // was debating about renaming this to "owned NFTs" but honestly token is still accurate considering NFT = "non-fungible token"
     private final List<String> ownedTokens;
+    @BsonProperty("degen_coin_balance")
+    private long degenCoinBalance;
 
     public Degen(String id) {
         this(id, 0, new ArrayList<>());

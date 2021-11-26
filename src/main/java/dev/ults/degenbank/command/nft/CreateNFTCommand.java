@@ -4,13 +4,11 @@ import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
+import dev.ults.degenbank.utils.DegenUtils;
 import dev.ults.degenbank.utils.EmbedUtils;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
-
-import java.awt.*;
 
 public class CreateNFTCommand implements ICommand {
     @Override
@@ -67,9 +65,9 @@ public class CreateNFTCommand implements ICommand {
             // this is one of the few cases where I will allow a manual store, because it makes sense.
             DegenBank.INSTANCE.storeNFT(nft);
             degen.addToken(name);
-
-            channel.sendMessage(user.getAsMention() + ", your `" + name + "` NFT has been minted for " +
-                    DegenBank.INSTANCE.getBalanceFormat().format(value) + " DGN!").queue();
+            sendMessage(channel, EmbedUtils.getPingSuccessEmbed(user, "Minted NFT", String.format("Your `%s` NFT has been minted for %s!", name,
+                    DegenUtils.getDisplayBalance(value))));
+            // TODO: REWORK THIS \/
             DegenBank.INSTANCE.postNFTMint(nft);
         } else {
             channel.sendMessage(user.getAsMention() + ", you don't have enough DGN to mint this NFT.").queue();

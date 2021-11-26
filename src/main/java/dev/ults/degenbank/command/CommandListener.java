@@ -1,7 +1,6 @@
 package dev.ults.degenbank.command;
 
 import dev.ults.degenbank.DegenBank;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;

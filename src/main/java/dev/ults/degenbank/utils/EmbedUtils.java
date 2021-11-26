@@ -1,6 +1,5 @@
 package dev.ults.degenbank.utils;
 
-import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.NFT;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -49,14 +48,25 @@ public class EmbedUtils {
                 .setFooter("(arg) = required | <arg> = optional");
     }
 
+    public static MessageBuilder getPingDegenBalanceEmbed(User user, StringBuilder sb) {
+        return new MessageBuilder().mention(user).setEmbed(getEmbed()
+                .setColor(Color.getColor("#66ffff"))
+                .setTitle(user.getName() + (user.getName().endsWith("s") ? "'" : "'s") + " Wallet")
+                .setDescription(sb.toString().trim())
+                .build());
+    }
 
     public static EmbedBuilder getNFTInfoEmbed(NFT nft, String nftOwnerId, User user) {
         return getEmbed()
                 .setColor(Color.PINK)
                 .setTitle(String.format("NFT - `%s`", nft.getName()))
                 .addField("Creator", String.format("<@%s> %s", nft.getCreatorID(), (user.getId().equals(nftOwnerId) ? " (you!)" : "")), true)
-                .addField("Value", DegenUtils.getDisplayBalance(nft.getSalePrice()), true)
                 .addField("Owner", String.format("<@%s> %s", nftOwnerId, (user.getId().equals(nftOwnerId) ? " (you!)" : "")), true)
+                .addField("Initial Value", DegenUtils.getDisplayBalance(nft.getInitialPrice()), true)
+                // should loop here to newline
+                .addField("Last Sale Price", DegenUtils.getDisplayBalance(nft.getLastSalePrice()), true)
+                .addField("For Sale?", (nft.isForSale() ? "Yes" : "No"), true)
+                .addField("Sale Price", (nft.isForSale() ? DegenUtils.getDisplayBalance(nft.getSalePrice()) : "N/A"), true)
                 .setImage(nft.getUrl());
     }
 
@@ -76,7 +86,7 @@ public class EmbedUtils {
                 .setTitle("NFT Purchased")
                 .addField("NFT Name", String.format("`%s`", nft.getName()), true)
                 .addField("New NFT Owner", String.format("<@%s>", buyerId), true)
-                .addField("Value",  DegenUtils.getDisplayBalance(nft.getSalePrice()), true);
+                .addField("Value", DegenUtils.getDisplayBalance(nft.getSalePrice()), true);
     }
 
     public static EmbedBuilder getNFTTransferEmbed(String nftName, String sellerId, String buyerId) {

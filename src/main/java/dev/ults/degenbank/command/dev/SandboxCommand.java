@@ -1,6 +1,5 @@
 package dev.ults.degenbank.command.dev;
 
-import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
@@ -10,6 +9,11 @@ public class SandboxCommand implements ICommand {
     @Override
     public String getCommand() {
         return "sandbox";
+    }
+
+    @Override
+    public String getUsage() {
+        return "-sandbox <(<><()<><)><(><)><(><)><(><)(>)>)>";
     }
 
     @Override

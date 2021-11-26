@@ -5,12 +5,9 @@ import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
 import dev.ults.degenbank.utils.EmbedUtils;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
-
-import java.awt.*;
 
 public class SendNFTCommand implements ICommand {
     @Override
@@ -43,11 +40,12 @@ public class SendNFTCommand implements ICommand {
         String nftName = args[1];
         NFT nft = this.getNFTById(nftName);
         if (nft != null && payer.getOwnedTokens().contains(nftName)) {
-                payer.removeToken(nft.getName());
-                payee.addToken(nft.getName());
-                DegenBank.INSTANCE.postNFTTrade(nft, payer.getId(), payee.getId());
-                // TODO: -- UPDATE --
-                channel.sendMessage(user.getAsMention() + ", you have successfully sent the `" + nft.getName() + "`!").queue();
+            payer.removeToken(nft.getName());
+            payee.addToken(nft.getName());
+            // TODO: find new system for this \/
+            DegenBank.INSTANCE.postNFTTrade(nft, payer.getId(), payee.getId());
+            sendMessage(channel, EmbedUtils.getPingSuccessEmbed(user, "NFT Sent",
+                    String.format("You have successfully sent the `%s` NFT to <@%s>.", nftName, payeeUser.getId())));
         } else {
             sendMessage(channel, EmbedUtils.getInvalidNFTEmbed(user, nftName));
         }
