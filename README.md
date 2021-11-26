@@ -1,4 +1,4 @@
-<p style="font-size: 8px;color:gray;">This is mostly just on here because I needed an easy way to move files from my PC to my RPi (+ version control). But, here we are.</p>
+<p style="font-size: 4px;color:gray;">This is mostly just on here because I needed an easy way to move files from my PC to my RPi (+ version control). But, here we are.</p>
 
 # degenBank - A bank by the brainless, for the brainless.
 
