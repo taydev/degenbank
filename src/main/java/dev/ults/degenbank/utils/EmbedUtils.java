@@ -2,6 +2,7 @@ package dev.ults.degenbank.utils;
 
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.NFT;
+import dev.ults.degenbank.obj.Transaction;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.MessageBuilder;
 import net.dv8tion.jda.api.entities.User;
@@ -119,5 +120,15 @@ public class EmbedUtils {
                     .setDescription(String.format("You have cancelled the sell order for the NFT `%s`.", nft.getName()));
         }
         return builder.setEmbed(embed.build());
+    }
+
+    public static EmbedBuilder getTransactionEmbed(Transaction transaction) {
+        return getEmbed()
+                .setColor(Color.getColor("#ff6600"))
+                .setTitle("Transaction #" + DegenUtils.getFormattedBalance(transaction.getTransactionId()))
+                .addField("Payer", String.format("<@%s>", transaction.getPayerId()), true)
+                .addField("Payee", String.format("<@%s>", transaction.getPayeeId()), true)
+                .addField("Value", DegenUtils.getDisplayBalance(transaction.getValue()), true)
+                .addField("Note", transaction.getNote(), false);
     }
 }

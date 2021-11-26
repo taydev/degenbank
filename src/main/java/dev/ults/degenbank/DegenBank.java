@@ -1,5 +1,9 @@
 package dev.ults.degenbank;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
@@ -40,40 +44,56 @@ import org.slf4j.LoggerFactory;
 
 import javax.security.auth.login.LoginException;
 import java.awt.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class DegenBank {
 
+    //region Global Variables
     public static final DegenBank INSTANCE = new DegenBank();
     public static final Logger LOGGER = LoggerFactory.getLogger(DegenBank.class);
+    private final String ENV;
+    //endregion
 
+    //region MongoDB Variables
     private final MongoClient MONGO_CLIENT;
     private final FindOneAndReplaceOptions UPSERT_OPTS;
     private final CodecRegistry CODEC_REGISTRY;
+    //endregion
 
-    // bot variables
+    //region Bot/JDA Variables
     private String token;
     private String prefix;
     private JDA client;
     private Set<ICommand> commands;
+    //endregion
 
-    // caching
+    //region Caching and Transaction Variables
     private Set<Degen> cachedDegens;
     private Set<NFT> cachedNFTs;
-
-    // transactions
     private boolean acceptingTransactions;
     private MessageChannel transactionHistoryChannel;
     private List<Transaction> pendingTransactionLog;
+    private final ScheduledExecutorService threadPool = Executors.newScheduledThreadPool(4);
     private Thread transactionProcessingThread;
+    //endregion
 
     public DegenBank() {
+        this.ENV = Optional.ofNullable(System.getenv("ENV")).orElse("DEV");
         this.MONGO_CLIENT = new MongoClient();
         this.UPSERT_OPTS = new FindOneAndReplaceOptions().upsert(true);
         this.CODEC_REGISTRY = CodecRegistries.fromRegistries(MongoClient.getDefaultCodecRegistry(),
@@ -88,49 +108,41 @@ public class DegenBank {
         INSTANCE.initialise();
     }
 
+    //region Initialisation Methods
     private void initialise() {
         if (!this.parseConfiguration()) {
-            // this should probably be migrated to a file
-            // just for ease of use
-            // hm
-            LOGGER.info("Configuration not detected. Default configuration has been inserted. Do your thing, chief.");
             System.exit(69);
         }
         this.connectToDiscord();
     }
 
-    private MongoClient getMongoClient() {
-        return this.MONGO_CLIENT;
-    }
-
-    private MongoDatabase getDatabase() {
-        return this.getMongoClient().getDatabase("degen_bank").withCodecRegistry(this.CODEC_REGISTRY);
-    }
-
-    // what am I doing? I'm putting the config in Mango.
-    // why? because I'm too lazy to parse a file rn
-    // deal w/ it, me in about 3 days
-    // update from me in 3 days: yeah true I need to fix this
-    private MongoCollection<Document> getConfiguration() {
-        return this.getDatabase().getCollection("config");
-    }
-
-    // also I love how this doesn't even use any actual logic lmao
-    // might be worth integrating an environment variable to dictate which db to use
     private boolean parseConfiguration() {
-        Document config = this.getConfiguration().find(Filters.eq("_id", "dev")).first();
-        if (config == null) {
-            Document defaultConfig = new Document()
-                    .append("_id", "dev")
-                    .append("token", "insert-token-here")
-                    .append("prefix", "insert-prefix-here");
-            this.getConfiguration().insertOne(defaultConfig);
-            return false;
-        } else {
-            this.token = config.getString("token");
-            this.prefix = config.getString("prefix");
-            return true;
+        File file = new File(this.getEnvironment().toLowerCase() + "_config.json");
+        try {
+            if (file.exists()) {
+                FileReader reader = new FileReader(file);
+                JsonObject configObject = (JsonObject) JsonParser.parseReader(reader);
+                this.setToken(configObject.get("token").getAsString());
+                this.setPrefix(configObject.get("prefix").getAsString());
+                reader.close();
+                LOGGER.info("Configuration parsed. Moving to Discord loading phase...");
+                return true;
+            } else {
+                FileWriter writer = new FileWriter(file);
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                JsonObject defaultConfig = new JsonObject();
+                defaultConfig.addProperty("token", "insert-token-here");
+                defaultConfig.addProperty("prefix", "insert-prefix-here");
+                writer.write(gson.toJson(defaultConfig));
+                writer.flush();
+                writer.close();
+                LOGGER.info("Default configuration created. Insert your token and prefix of choice, then re-launch the bot.");
+                return false;
+            }
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while parsing configuration.", e);
         }
+        return false;
     }
 
     private void connectToDiscord() {
@@ -150,25 +162,84 @@ public class DegenBank {
 
     public void onReady() {
         LOGGER.info("Discord connection established. Registering commands...");
-        // \/ REORDER THIS MESS \/
-        this.registerCommand(new SandboxCommand());
+
+        // -- Developer Commands --
         this.registerCommand(new EvalCommand());
-        this.registerCommand(new BalanceCommand());
         this.registerCommand(new MintCommand());
-        this.registerCommand(new SendCommand());
         this.registerCommand(new PullCommand());
+        this.registerCommand(new SandboxCommand());
+        // -- Kromer Commands
+        this.registerCommand(new BalanceCommand());
+        this.registerCommand(new SendCommand());
+        // -- NFT Commands --
+        this.registerCommand(new BuyCommand());
         this.registerCommand(new CreateNFTCommand());
         this.registerCommand(new NFTInfoCommand());
         this.registerCommand(new SellCommand());
-        this.registerCommand(new BuyCommand());
         this.registerCommand(new SendNFTCommand());
-        // ^ REORDER THIS MESS ^
-        this.transactionHistoryChannel = this.getClient().getTextChannelById("912892124326944788");
-        this.pendingTransactionLog = new CopyOnWriteArrayList<>();
+
+        LOGGER.info("Commands registered. Initialising transaction processing...");
+        this.initialiseTransactionHistoryChannel();
+        this.initialisePendingTransactionLog();
         this.startTransactionProcessingThread();
 
         this.cachedDegens = new HashSet<>();
         this.cachedNFTs = new HashSet<>();
+
+        this.setAcceptingTransactions(true);
+    }
+
+    private void startTransactionProcessingThread() {
+        threadPool.scheduleAtFixedRate(new Thread(() -> {
+            if (this.getPendingTransactionLog().size() > 0) {
+                Transaction transaction = this.getPendingTransactionLog().get(0);
+                transaction.setTransactionId(this.getNextTransactionId());
+                this.getTransactions().insertOne(transaction);
+                this.getTransactionHistoryChannel().sendMessage(EmbedUtils.getTransactionEmbed(transaction).build()).queue();
+                this.getPendingTransactionLog().remove(transaction);
+            }
+            if (!this.isAcceptingTransactions() && this.getPendingTransactionLog().size() == 0) {
+                threadPool.shutdown();
+            }
+        }), 5, 5, TimeUnit.SECONDS);
+    }
+    //endregion
+
+    //region Global - Getters
+    public String getEnvironment() {
+        return this.ENV;
+    }
+    //endregion
+
+    //region MongoDB - Getters
+    private MongoClient getMongoClient() {
+        return this.MONGO_CLIENT;
+    }
+
+    private MongoDatabase getDatabase() {
+        return this.getMongoClient().getDatabase("degen_bank").withCodecRegistry(this.CODEC_REGISTRY);
+    }
+
+    public MongoCollection<Degen> getDegens() {
+        return this.getDatabase().getCollection("degens", Degen.class);
+    }
+
+    public MongoCollection<NFT> getNFTs() {
+        return this.getDatabase().getCollection("nfts", NFT.class);
+    }
+
+    public MongoCollection<Transaction> getTransactions() {
+        return this.getDatabase().getCollection("transactions", Transaction.class);
+    }
+    //endregion
+
+    //region Bot/JDA - Getters
+    private String getToken() {
+        return this.token;
+    }
+
+    public String getPrefix() {
+        return this.prefix;
     }
 
     public Set<ICommand> getCommands() {
@@ -176,11 +247,6 @@ public class DegenBank {
             this.commands = new HashSet<>();
         }
         return this.commands;
-    }
-
-    public void registerCommand(ICommand command) {
-        this.getCommands().add(command);
-        LOGGER.info("Command registered - {}", command.getCommand());
     }
 
     public ICommand getCommand(String name) {
@@ -192,23 +258,28 @@ public class DegenBank {
         return null;
     }
 
-    public String getPrefix() {
-        return this.prefix;
-    }
-
     public JDA getClient() {
         return this.client;
+    }
+    //endregion
+
+    //region Caching and Transactions - Getters
+    public MessageChannel getTransactionHistoryChannel() {
+        return this.transactionHistoryChannel;
+    }
+
+    public List<Transaction> getPendingTransactionLog() {
+        return this.pendingTransactionLog;
+    }
+
+    public boolean isAcceptingTransactions() {
+        return this.acceptingTransactions;
     }
 
     public Set<Degen> getCachedDegens() {
         return this.cachedDegens;
     }
 
-    public MongoCollection<Degen> getDegens() {
-        return this.getDatabase().getCollection("degens", Degen.class);
-    }
-
-    // could probably just use caffeine for caching purposes but I'd rather do it by hand
     public Degen getDegenById(String id) {
         Optional<Degen> opt = this.getCachedDegens().stream().filter(degen -> degen.getId().equals(id)).findFirst();
         if (opt.isPresent()) {
@@ -223,15 +294,6 @@ public class DegenBank {
             this.getCachedDegens().add(degen);
             return degen;
         }
-    }
-
-    public void storeDegen(Degen degen) {
-        // this should work, theoretically
-        this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen, this.UPSERT_OPTS);
-    }
-
-    public MongoCollection<NFT> getNFTs() {
-        return this.getDatabase().getCollection("nfts", NFT.class);
     }
 
     public Set<NFT> getCachedNFTs() {
@@ -264,60 +326,57 @@ public class DegenBank {
         return null;
     }
 
+    private int getNextTransactionId() {
+        return (int) (this.getTransactions().countDocuments() + 1);
+    }
+    //endregion
+
+    //region MongoDB - Storage (Setters, technically)
+    public void storeDegen(Degen degen) {
+        this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen, this.UPSERT_OPTS);
+    }
+
     public void storeNFT(NFT nft) {
         this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft, this.UPSERT_OPTS);
     }
+    //endregion
 
-    public MongoCollection<Transaction> getTransactions() {
-        return this.getDatabase().getCollection("transactions", Transaction.class);
+    //region Bot/JDA - Setters
+    private void setToken(String token) {
+        this.token = token;
+    }
+
+    private void setPrefix(String prefix) {
+        this.prefix = prefix;
+    }
+
+    // this is technically a setter, I do not care
+    public void registerCommand(ICommand command) {
+        this.getCommands().add(command);
+        LOGGER.info("Command registered - {}", command.getCommand());
+    }
+    //endregion
+
+    //region Caching and Transactions - Setters
+    public void initialiseTransactionHistoryChannel() {
+        this.transactionHistoryChannel = this.getClient().getTextChannelById("912892124326944788");
+    }
+
+    public void initialisePendingTransactionLog() {
+        this.pendingTransactionLog = new CopyOnWriteArrayList<>();
+    }
+
+    public void setAcceptingTransactions(boolean isAcceptingTransactions) {
+        this.acceptingTransactions = isAcceptingTransactions;
     }
 
     public void insertTransaction(String payerId, String payeeId, long balance, String note) {
-        this.pendingTransactionLog.add(new Transaction(payerId, payeeId, balance, note));
+        this.getPendingTransactionLog().add(new Transaction(payerId, payeeId, balance, note));
     }
+    //endregion
 
-    // this entire function is useless
-    private int getNextTransactionId() {
-        Document config = this.getConfiguration().find(Filters.eq("_id", "dev")).first();
-        if (config != null) {
-            int transactionId = config.get("tx_index", Integer.class);
-            config.replace("tx_index", transactionId + 1);
-            this.getConfiguration().findOneAndReplace(Filters.eq("_id", "dev"), config);
-            return transactionId;
-        } else {
-            // this should never be possible??????????
-            return -271920;
-        }
-    }
-
-    // TODO: clean
-    private void startTransactionProcessingThread() {
-        this.transactionProcessingThread = new Thread(() -> {
-            while (true) {
-                if (this.pendingTransactionLog.size() > 0) {
-                    Transaction transaction = this.pendingTransactionLog.get(0);
-                    transaction.setTransactionId(this.getNextTransactionId());
-                    this.getTransactions().insertOne(transaction);
-                    this.transactionHistoryChannel.sendMessage(new EmbedBuilder()
-                            .setColor(Color.ORANGE)
-                            .setTitle("Transaction #" + DegenUtils.getFormattedBalance(transaction.getTransactionId()))
-                            .addField("Payer", String.format("<@%s>", transaction.getPayerId()), true)
-                            .addField("Payee", String.format("<@%s>", transaction.getPayeeId()), true)
-                            .addField("Value", DegenUtils.getDisplayBalance(transaction.getValue()), true)
-                            .addField("Note", transaction.getNote(), false)
-                            .setTimestamp(LocalDateTime.now())
-                            .build()).queue();
-                    this.pendingTransactionLog.remove(transaction);
-                    try {
-                        Thread.sleep(10000);
-                    } catch (InterruptedException ignored) {
-                    }
-                }
-            }
-        }, "TransactionProcessingThread");
-        this.transactionProcessingThread.start();
-    }
-
+    // do these really need their own region? no. am I going to give them one? yes.
+    //region Transaction History Posting Methods
     public void postNFTMint(NFT nft) {
         this.transactionHistoryChannel.sendMessage(EmbedUtils.getNFTMintEmbed(nft).build()).queue();
     }
@@ -329,4 +388,5 @@ public class DegenBank {
     public void postNFTTrade(NFT nft, String payerId, String payeeId) {
         this.transactionHistoryChannel.sendMessage(EmbedUtils.getNFTTransferEmbed(nft.getName(), payerId, payeeId).build()).queue();
     }
+    //endregion
 }
