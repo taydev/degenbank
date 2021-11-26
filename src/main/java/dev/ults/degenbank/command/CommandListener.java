@@ -8,13 +8,18 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 
+// this entire system should probably be swapped for Discord's proprietary command system
+// will I? probably not.
 public class CommandListener extends ListenerAdapter {
 
     @Override
-    public void onReady(ReadyEvent e) {
+    // not actually sure why IntelliJ makes this a warn when the event isn't used
+    // should probably look into that
+    public void onReady(@NotNull ReadyEvent e) {
         DegenBank.INSTANCE.onReady();
     }
 

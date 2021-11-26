@@ -4,6 +4,7 @@ import dev.ults.degenbank.DegenBank;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
+import dev.ults.degenbank.utils.EmbedUtils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
@@ -18,6 +19,11 @@ public class CreateNFTCommand implements ICommand {
     }
 
     @Override
+    public String getUsage() {
+        return "-createnft (name) (value)";
+    }
+
+    @Override
     public String[] getAliases() {
         return new String[]{"cnft", "makenft", "mnft", "newnft", "nnft"};
     }
@@ -25,27 +31,18 @@ public class CreateNFTCommand implements ICommand {
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
         if (args.length != 2) {
-            channel.sendMessage(new EmbedBuilder()
-                    .setColor(Color.RED)
-                    .setTitle("Error - Invalid Syntax")
-                    .setDescription("Usage: `-" + command + " (name) (price)`\n" +
-                            "Your NFT's name must be one word (e.g. `madi_wassim`), and the image you would like to use must be attached to the " +
-                            "command message.")
-                    .build()).queue();
+            sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
             return;
         }
         if (message.getAttachments().size() != 1 || !message.getAttachments().get(0).isImage()) {
-            channel.sendMessage(new EmbedBuilder()
-                    .setColor(Color.RED)
-                    .setTitle("Error - No Attachment (or too many)")
-                    .setDescription("You must include **one** attached image for your NFT for creation to be successful.")
-                    .build()).queue();
+            sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Attachment",
+                    "You must include __one__ attached image for your NFT for creation to be successful."));
             return;
         }
 
         String name = args[0];
-        if (DegenBank.INSTANCE.getNFTByName(name) != null) {
-            channel.sendMessage(user.getAsMention() + ", an NFT by that name already exists.").queue();
+        if (this.getNFTById(name) != null) {
+            sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Name Already Taken", "An NFT by this name already exists."));
             return;
         }
 
@@ -53,26 +50,24 @@ public class CreateNFTCommand implements ICommand {
         long value = 0;
         try {
             value = Math.abs(Long.parseLong(args[1]));
+            // iirc Math#abs(Long) can't round a max neg so I'm counting below 0
             if (value <= 0) {
-                channel.sendMessage(user.getAsMention() + ", you can't mint an NFT with no initial value.").queue();
+                sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value", "An NFT cannot be minted with no initial value."));
                 return;
             }
         } catch (NumberFormatException e) {
-            channel.sendMessage(user.getAsMention() + ", that isn't a valid amount of DGN.").queue();
+            sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value",
+                    "An invalid value for the number of DGN to mint for was entered."));
             return;
         }
 
-        Degen degen = DegenBank.INSTANCE.getDegenByID(user.getId());
-        if (degen == null) {
-            channel.sendMessage(user.getAsMention() + ", you haven't created a wallet! Type `-balance` to get started.").queue();
-            return;
-        }
-
+        Degen degen = this.getDegenById(user.getId());
         if (degen.removeDegenCoin(value)) {
-            NFT nft = new NFT(name, user.getId(), url, value, false);
+            NFT nft = new NFT(name, user.getId(), url, value, false, value, value);
+            // this is one of the few cases where I will allow a manual store, because it makes sense.
             DegenBank.INSTANCE.storeNFT(nft);
             degen.addToken(name);
-            DegenBank.INSTANCE.storeDegen(degen);
+
             channel.sendMessage(user.getAsMention() + ", your `" + name + "` NFT has been minted for " +
                     DegenBank.INSTANCE.getBalanceFormat().format(value) + " DGN!").queue();
             DegenBank.INSTANCE.postNFTMint(nft);

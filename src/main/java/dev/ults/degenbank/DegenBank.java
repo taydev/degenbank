@@ -1,11 +1,10 @@
 package dev.ults.degenbank;
 
-import com.google.gson.JsonObject;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.TextSearchOptions;
+import com.mongodb.client.model.FindOneAndReplaceOptions;
 import dev.ults.degenbank.command.CommandListener;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.command.dev.EvalCommand;
@@ -22,6 +21,8 @@ import dev.ults.degenbank.command.nft.SendNFTCommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
 import dev.ults.degenbank.obj.Transaction;
+import dev.ults.degenbank.utils.DegenUtils;
+import dev.ults.degenbank.utils.EmbedUtils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -38,12 +39,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.security.auth.login.LoginException;
-import java.awt.*;
-import java.text.DecimalFormat;
+import java.awt.Color;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -53,21 +54,28 @@ public class DegenBank {
     public static final Logger LOGGER = LoggerFactory.getLogger(DegenBank.class);
 
     private final MongoClient MONGO_CLIENT;
-    private final TextSearchOptions CASE_INSENSITIVE = new TextSearchOptions().caseSensitive(false)
-            .diacriticSensitive(false);
+    private final FindOneAndReplaceOptions UPSERT_OPTS;
     private final CodecRegistry CODEC_REGISTRY;
 
+    // bot variables
     private String token;
     private String prefix;
-
     private JDA client;
     private Set<ICommand> commands;
+
+    // caching
+    private Set<Degen> cachedDegens;
+    private Set<NFT> cachedNFTs;
+
+    // transactions
+    private boolean acceptingTransactions;
     private MessageChannel transactionHistoryChannel;
     private List<Transaction> pendingTransactionLog;
     private Thread transactionProcessingThread;
 
     public DegenBank() {
         this.MONGO_CLIENT = new MongoClient();
+        this.UPSERT_OPTS = new FindOneAndReplaceOptions().upsert(true);
         this.CODEC_REGISTRY = CodecRegistries.fromRegistries(MongoClient.getDefaultCodecRegistry(),
                 CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true)
                         .register(ClassModel.builder(Degen.class).enableDiscriminator(true).build())
@@ -75,13 +83,16 @@ public class DegenBank {
                         .register(ClassModel.builder(Transaction.class).enableDiscriminator(true).build())
                         .build()));
     }
-    
+
     public static void main(String[] args) {
         INSTANCE.initialise();
     }
 
     private void initialise() {
         if (!this.parseConfiguration()) {
+            // this should probably be migrated to a file
+            // just for ease of use
+            // hm
             LOGGER.info("Configuration not detected. Default configuration has been inserted. Do your thing, chief.");
             System.exit(69);
         }
@@ -93,16 +104,19 @@ public class DegenBank {
     }
 
     private MongoDatabase getDatabase() {
-        return this.getMongoClient().getDatabase("degen_bank").withCodecRegistry(CODEC_REGISTRY);
+        return this.getMongoClient().getDatabase("degen_bank").withCodecRegistry(this.CODEC_REGISTRY);
     }
 
     // what am I doing? I'm putting the config in Mango.
     // why? because I'm too lazy to parse a file rn
     // deal w/ it, me in about 3 days
+    // update from me in 3 days: yeah true I need to fix this
     private MongoCollection<Document> getConfiguration() {
         return this.getDatabase().getCollection("config");
     }
 
+    // also I love how this doesn't even use any actual logic lmao
+    // might be worth integrating an environment variable to dictate which db to use
     private boolean parseConfiguration() {
         Document config = this.getConfiguration().find(Filters.eq("_id", "dev")).first();
         if (config == null) {
@@ -124,6 +138,8 @@ public class DegenBank {
             this.client = JDABuilder.create(this.token, Arrays.asList(GatewayIntent.values()))
                     .setAutoReconnect(true)
                     .addEventListeners(new CommandListener())
+                    // really annoys me that the bot API doesn't support custom statuses. discord, fix pls.
+                    // unless it's jda, then uhh... jda, fix pls.
                     .setActivity(Activity.playing("with my orb"))
                     .setStatus(OnlineStatus.IDLE)
                     .build();
@@ -134,6 +150,7 @@ public class DegenBank {
 
     public void onReady() {
         LOGGER.info("Discord connection established. Registering commands...");
+        // \/ REORDER THIS MESS \/
         this.registerCommand(new SandboxCommand());
         this.registerCommand(new EvalCommand());
         this.registerCommand(new BalanceCommand());
@@ -145,10 +162,13 @@ public class DegenBank {
         this.registerCommand(new SellCommand());
         this.registerCommand(new BuyCommand());
         this.registerCommand(new SendNFTCommand());
-
+        // ^ REORDER THIS MESS ^
         this.transactionHistoryChannel = this.getClient().getTextChannelById("912892124326944788");
         this.pendingTransactionLog = new CopyOnWriteArrayList<>();
         this.startTransactionProcessingThread();
+
+        this.cachedDegens = new HashSet<>();
+        this.cachedNFTs = new HashSet<>();
     }
 
     public Set<ICommand> getCommands() {
@@ -180,35 +200,61 @@ public class DegenBank {
         return this.client;
     }
 
+    public Set<Degen> getCachedDegens() {
+        return this.cachedDegens;
+    }
+
     public MongoCollection<Degen> getDegens() {
         return this.getDatabase().getCollection("degens", Degen.class);
     }
 
-    public Degen getDegenByID(String id) {
-        return this.getDegens()
-                .find(Filters.eq("_id", id))
-                .first();
+    // could probably just use caffeine for caching purposes but I'd rather do it by hand
+    public Degen getDegenById(String id) {
+        Optional<Degen> opt = this.getCachedDegens().stream().filter(degen -> degen.getId().equals(id)).findFirst();
+        if (opt.isPresent()) {
+            return opt.get();
+        } else {
+            Degen degen = this.getDegens()
+                    .find(Filters.eq("_id", id))
+                    .first();
+            if (degen == null) {
+                degen = new Degen(id);
+            }
+            this.getCachedDegens().add(degen);
+            return degen;
+        }
     }
 
     public void storeDegen(Degen degen) {
-        if (this.getDegenByID(degen.getId()) == null) {
-            this.getDegens().insertOne(degen);
-        } else {
-            this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen);
-        }
+        // this should work, theoretically
+        this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen, this.UPSERT_OPTS);
     }
 
     public MongoCollection<NFT> getNFTs() {
         return this.getDatabase().getCollection("nfts", NFT.class);
     }
 
-    public NFT getNFTByName(String id) {
-        return this.getNFTs()
-                .find(Filters.eq("_id", id))
-                .first();
+    public Set<NFT> getCachedNFTs() {
+        return this.cachedNFTs;
     }
 
-    public String getNFTOwnerID(NFT nft) {
+    public NFT getNFTById(String id) {
+        Optional<NFT> opt = this.getCachedNFTs().stream().filter(nft -> nft.getName().equals(id)).findFirst();
+        if (opt.isPresent()) {
+            return opt.get();
+        } else {
+            NFT nft = this.getNFTs()
+                    .find(Filters.eq("_id", id))
+                    .first();
+            if (nft != null) {
+                this.getCachedNFTs().add(nft);
+                return nft;
+            }
+            return null;
+        }
+    }
+
+    public String getNFTOwnerId(NFT nft) {
         Degen degen = this.getDegens()
                 .find(Filters.in("owned_tokens", nft.getName()))
                 .first();
@@ -219,11 +265,7 @@ public class DegenBank {
     }
 
     public void storeNFT(NFT nft) {
-        if (this.getNFTByName(nft.getName()) == null) {
-            this.getNFTs().insertOne(nft);
-        } else {
-            this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft);
-        }
+        this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft, this.UPSERT_OPTS);
     }
 
     public MongoCollection<Transaction> getTransactions() {
@@ -234,6 +276,7 @@ public class DegenBank {
         this.pendingTransactionLog.add(new Transaction(payerId, payeeId, balance, note));
     }
 
+    // this entire function is useless
     private int getNextTransactionId() {
         Document config = this.getConfiguration().find(Filters.eq("_id", "dev")).first();
         if (config != null) {
@@ -247,6 +290,7 @@ public class DegenBank {
         }
     }
 
+    // TODO: clean
     private void startTransactionProcessingThread() {
         this.transactionProcessingThread = new Thread(() -> {
             while (true) {
@@ -256,10 +300,10 @@ public class DegenBank {
                     this.getTransactions().insertOne(transaction);
                     this.transactionHistoryChannel.sendMessage(new EmbedBuilder()
                             .setColor(Color.ORANGE)
-                            .setTitle("Transaction #" + this.getBalanceFormat().format(transaction.getTransactionId()))
-                            .addField("Payer", this.getClient().getUserById(transaction.getPayerId()).getAsMention(), true)
-                            .addField("Payee", this.getClient().getUserById(transaction.getPayeeId()).getAsMention(), true)
-                            .addField("Value", this.getBalanceFormat().format(transaction.getBalance()) + " DGN", true)
+                            .setTitle("Transaction #" + DegenUtils.getFormattedBalance(transaction.getTransactionId()))
+                            .addField("Payer", String.format("<@%s>", transaction.getPayerId()), true)
+                            .addField("Payee", String.format("<@%s>", transaction.getPayeeId()), true)
+                            .addField("Value", DegenUtils.getDisplayBalance(transaction.getValue()), true)
                             .addField("Note", transaction.getNote(), false)
                             .setTimestamp(LocalDateTime.now())
                             .build()).queue();
@@ -275,40 +319,14 @@ public class DegenBank {
     }
 
     public void postNFTMint(NFT nft) {
-        this.transactionHistoryChannel.sendMessage(new EmbedBuilder()
-                .setColor(Color.GREEN)
-                .setTitle("New NFT minted!")
-                .addField("NFT Name", "`" + nft.getName() + "`", true)
-                .addField("NFT Owner", this.getClient().getUserById(nft.getCreatorID()).getName(), true)
-                .addField("Value", this.getBalanceFormat().format(nft.getPrice()) + " DGN", true)
-                .setImage(nft.getUrl())
-                .setTimestamp(LocalDateTime.now())
-                .build()).queue();
+        this.transactionHistoryChannel.sendMessage(EmbedUtils.getNFTMintEmbed(nft).build()).queue();
     }
 
     public void postNFTBuy(NFT nft, String buyerId) {
-        this.transactionHistoryChannel.sendMessage(new EmbedBuilder()
-                .setColor(Color.WHITE)
-                .setTitle("NFT Purchased")
-                .addField("NFT Name", "`" + nft.getName() + "`", true)
-                .addField("New NFT Owner", this.getClient().getUserById(buyerId).getAsMention(), true)
-                .addField("Value", this.getBalanceFormat().format(nft.getPrice()) + " DGN", true)
-                .setTimestamp(LocalDateTime.now())
-                .build()).queue();
+        this.transactionHistoryChannel.sendMessage(EmbedUtils.getNFTSaleEmbed(nft, buyerId).build()).queue();
     }
 
     public void postNFTTrade(NFT nft, String payerId, String payeeId) {
-        this.transactionHistoryChannel.sendMessage(new EmbedBuilder()
-                .setColor(Color.MAGENTA)
-                .setTitle("NFT Transferred")
-                .addField("NFT Name", "`" + nft.getName() + "`", true)
-                .addField("Past NFT Owner", this.getClient().getUserById(payerId).getAsMention(), true)
-                .addField("New NFT Owner", this.getClient().getUserById(payeeId).getAsMention(), true)
-                .setTimestamp(LocalDateTime.now())
-                .build()).queue();
-    }
-
-    public DecimalFormat getBalanceFormat() {
-        return new DecimalFormat("#,###,###,##0");
+        this.transactionHistoryChannel.sendMessage(EmbedUtils.getNFTTransferEmbed(nft.getName(), payerId, payeeId).build()).queue();
     }
 }

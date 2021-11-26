@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 // base source is from an old version of https://github.com/flarebot/flarebot. thanks arsen :)
+// the entire Nashorn engine is being deprecated in future tho ( :( ) so this should probably be removed when I'm done debugging
 public class EvalCommand implements ICommand {
     private ScriptEngineManager manager = new ScriptEngineManager();
     private static final ThreadGroup EVALS = new ThreadGroup("EvalCommand Thread Pool");
@@ -70,6 +71,11 @@ public class EvalCommand implements ICommand {
     @Override
     public String getCommand() {
         return "eval";
+    }
+
+    @Override
+    public String getUsage() {
+        return "-eval (code)";
     }
 
     @Override

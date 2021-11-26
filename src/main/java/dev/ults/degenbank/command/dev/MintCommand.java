@@ -14,6 +14,11 @@ public class MintCommand implements ICommand {
     }
 
     @Override
+    public String getUsage() {
+        return "-mint (# of coins)";
+    }
+
+    @Override
     public boolean isDeveloperOnly() {
         return true;
     }

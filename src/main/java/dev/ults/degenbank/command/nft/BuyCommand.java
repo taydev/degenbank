@@ -33,18 +33,18 @@ public class BuyCommand implements ICommand {
             return;
         }
 
-        Degen degen = DegenBank.INSTANCE.getDegenByID(user.getId());
+        Degen degen = DegenBank.INSTANCE.getDegenById(user.getId());
         if (degen == null) {
             channel.sendMessage(user.getAsMention() + ", you don't have a DGN wallet! Type `-balance` to get started.").queue();
             return;
         }
 
-        NFT nft = DegenBank.INSTANCE.getNFTByName(args[0]);
+        NFT nft = DegenBank.INSTANCE.getNFTById(args[0]);
         if (nft != null) {
             if (nft.isForSale()) {
                 if (degen.removeDegenCoin(nft.getPrice())) {
-                    String id = DegenBank.INSTANCE.getNFTOwnerID(nft);
-                    Degen payee = DegenBank.INSTANCE.getDegenByID(id);
+                    String id = DegenBank.INSTANCE.getNFTOwnerId(nft);
+                    Degen payee = DegenBank.INSTANCE.getDegenById(id);
                     payee.addDegenCoin(nft.getPrice());
                     payee.removeToken(nft.getName());
                     degen.addToken(nft.getName());

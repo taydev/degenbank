@@ -12,20 +12,27 @@ public class NFT {
     private final String creatorID;
     @BsonProperty("url")
     private final String url;
-
-    @BsonProperty("price")
-    private long price;
+    @BsonProperty("initial_price")
+    private final long initialPrice;
     @BsonProperty("for_sale")
     private boolean forSale;
+    @BsonProperty("last_sale_price")
+    private long lastSalePrice;
+    @BsonProperty("sale_price")
+    private long salePrice;
 
     @BsonCreator
     public NFT(@BsonId String name, @BsonProperty("creator_id") String creatorID,
-            @BsonProperty("url") String url, @BsonProperty("price") long price, @BsonProperty("for_sale") boolean forSale) {
+            @BsonProperty("url") String url, @BsonProperty("initial_price") long initialPrice,
+            @BsonProperty("for_sale") boolean forSale, @BsonProperty("sale_price") long salePrice,
+            @BsonProperty("last_sale_price") long lastSalePrice) {
         this.name = name;
         this.creatorID = creatorID;
         this.url = url;
-        this.price = price;
+        this.initialPrice = initialPrice;
         this.forSale = forSale;
+        this.salePrice = salePrice;
+        this.lastSalePrice = lastSalePrice;
     }
 
     @BsonId
@@ -43,13 +50,9 @@ public class NFT {
         return this.url;
     }
 
-    @BsonProperty("price")
-    public long getPrice() {
-        return this.price;
-    }
-
-    public void setPrice(long price) {
-        this.price = price;
+    @BsonProperty("initial_price")
+    public long getInitialPrice() {
+        return this.initialPrice;
     }
 
     @BsonProperty("for_sale")
@@ -59,5 +62,23 @@ public class NFT {
 
     public void setForSale(boolean forSale) {
         this.forSale = forSale;
+    }
+
+    @BsonProperty("sale_price")
+    public long getSalePrice() {
+        return this.salePrice;
+    }
+
+    public void setSalePrice(long salePrice) {
+        this.salePrice = salePrice;
+    }
+
+    @BsonProperty("last_sale_price")
+    public long getLastSalePrice() {
+        return this.lastSalePrice;
+    }
+
+    public void setLastSalePrice(long lastSalePrice) {
+        this.lastSalePrice = lastSalePrice;
     }
 }
