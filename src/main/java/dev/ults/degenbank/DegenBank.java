@@ -14,6 +14,7 @@ import dev.ults.degenbank.command.dev.EvalCommand;
 import dev.ults.degenbank.command.dev.MintCommand;
 import dev.ults.degenbank.command.dev.PullCommand;
 import dev.ults.degenbank.command.dev.SandboxCommand;
+import dev.ults.degenbank.command.dev.SaveCommand;
 import dev.ults.degenbank.command.dev.ShutdownCommand;
 import dev.ults.degenbank.command.kromer.BalanceCommand;
 import dev.ults.degenbank.command.kromer.SendCommand;
@@ -83,7 +84,6 @@ public class DegenBank {
     private MessageChannel transactionHistoryChannel;
     private List<Transaction> pendingTransactionLog;
     private final ScheduledExecutorService threadPool = Executors.newScheduledThreadPool(4);
-    private Thread transactionProcessingThread;
     //endregion
 
     public DegenBank() {
@@ -163,6 +163,7 @@ public class DegenBank {
         this.registerCommand(new MintCommand());
         this.registerCommand(new PullCommand());
         this.registerCommand(new SandboxCommand());
+        this.registerCommand(new SaveCommand());
         this.registerCommand(new ShutdownCommand());
         // -- Kromer Commands
         this.registerCommand(new BalanceCommand());
@@ -194,23 +195,26 @@ public class DegenBank {
                 this.getTransactions().insertOne(transaction);
                 this.getTransactionHistoryChannel().sendMessage(EmbedUtils.getTransactionEmbed(transaction).build()).queue();
                 this.getPendingTransactionLog().remove(transaction);
-            }
-            if (!this.isAcceptingTransactions() && this.getPendingTransactionLog().size() == 0) {
-                this.storeAllDegens();
-                this.storeAllNFTs();
+                LOGGER.info("Transaction #{} processed ({} -> {}).", transaction.getTransactionId(), transaction.getPayerId(), transaction.getPayeeId());
+            } else if (!this.isAcceptingTransactions()) {
                 this.shutdown();
-                threadPool.shutdown();
             }
         }), 5, 5, TimeUnit.SECONDS);
+        threadPool.scheduleAtFixedRate(new Thread(this::save), 1, 10, TimeUnit.MINUTES);
+    }
+
+    public void save() {
+        LOGGER.info("Saving all cached entities...");
+        this.storeAllDegens();
+        this.storeAllNFTs();
+        LOGGER.info("Cached entities saved.");
     }
 
     // ignore this I'm too lazy to think of an actual implementation
-    private void shutdown() {
-        while (true) {
-            if (this.getCachedDegens().size() == 0 && this.getCachedNFTs().size() == 0) {
-                break;
-            }
-        }
+    public void shutdown() {
+        this.storeAllDegens();
+        this.storeAllNFTs();
+        this.threadPool.shutdown();
         System.exit(0);
     }
     //endregion
