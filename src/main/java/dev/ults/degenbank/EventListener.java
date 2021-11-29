@@ -1,10 +1,12 @@
-package dev.ults.degenbank.command;
+package dev.ults.degenbank;
 
 import dev.ults.degenbank.DegenBank;
+import dev.ults.degenbank.command.ICommand;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.ReadyEvent;
+import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateBoostTimeEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -13,7 +15,7 @@ import java.util.Arrays;
 
 // this entire system should probably be swapped for Discord's proprietary command system
 // will I? probably not.
-public class CommandListener extends ListenerAdapter {
+public class EventListener extends ListenerAdapter {
 
     @Override
     // not actually sure why IntelliJ makes this a warn when the event isn't used
@@ -51,4 +53,6 @@ public class CommandListener extends ListenerAdapter {
             command.execute(user, message, channel, commandString, args);
         }
     }
+
+    // TODO: look into boost event calls
 }

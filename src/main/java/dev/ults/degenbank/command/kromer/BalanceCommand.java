@@ -27,6 +27,10 @@ public class BalanceCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
+        if (!this.getInstance().isAcceptingTransactions()) {
+            sendMessage(channel, EmbedUtils.getShutdownEmbed());
+            return;
+        }
         Degen degen = this.getDegenById(user.getId());
         long total = degen.getDegenCoinBalance();
         StringBuilder sb = new StringBuilder()

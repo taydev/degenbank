@@ -28,6 +28,10 @@ public class BuyCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
+        if (!this.getInstance().isAcceptingTransactions()) {
+            sendMessage(channel, EmbedUtils.getShutdownEmbed());
+            return;
+        }
         if (args.length != 1) {
             sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
         }

@@ -27,6 +27,10 @@ public class SendNFTCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
+        if (!this.getInstance().isAcceptingTransactions()) {
+            sendMessage(channel, EmbedUtils.getShutdownEmbed());
+            return;
+        }
         if (args.length != 2) {
             sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
         }

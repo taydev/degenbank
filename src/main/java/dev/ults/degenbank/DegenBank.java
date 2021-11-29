@@ -9,12 +9,12 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.FindOneAndReplaceOptions;
-import dev.ults.degenbank.command.CommandListener;
 import dev.ults.degenbank.command.ICommand;
 import dev.ults.degenbank.command.dev.EvalCommand;
 import dev.ults.degenbank.command.dev.MintCommand;
 import dev.ults.degenbank.command.dev.PullCommand;
 import dev.ults.degenbank.command.dev.SandboxCommand;
+import dev.ults.degenbank.command.dev.ShutdownCommand;
 import dev.ults.degenbank.command.kromer.BalanceCommand;
 import dev.ults.degenbank.command.kromer.SendCommand;
 import dev.ults.degenbank.command.nft.BuyCommand;
@@ -25,16 +25,14 @@ import dev.ults.degenbank.command.nft.SendNFTCommand;
 import dev.ults.degenbank.obj.Degen;
 import dev.ults.degenbank.obj.NFT;
 import dev.ults.degenbank.obj.Transaction;
-import dev.ults.degenbank.utils.DegenUtils;
 import dev.ults.degenbank.utils.EmbedUtils;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.bson.Document;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.ClassModel;
@@ -43,14 +41,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.security.auth.login.LoginException;
-import java.awt.*;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -149,7 +143,8 @@ public class DegenBank {
         try {
             this.client = JDABuilder.create(this.token, Arrays.asList(GatewayIntent.values()))
                     .setAutoReconnect(true)
-                    .addEventListeners(new CommandListener())
+                    .setMemberCachePolicy(MemberCachePolicy.ALL)
+                    .addEventListeners(new EventListener())
                     // really annoys me that the bot API doesn't support custom statuses. discord, fix pls.
                     // unless it's jda, then uhh... jda, fix pls.
                     .setActivity(Activity.playing("with my orb"))
@@ -168,6 +163,7 @@ public class DegenBank {
         this.registerCommand(new MintCommand());
         this.registerCommand(new PullCommand());
         this.registerCommand(new SandboxCommand());
+        this.registerCommand(new ShutdownCommand());
         // -- Kromer Commands
         this.registerCommand(new BalanceCommand());
         this.registerCommand(new SendCommand());
@@ -187,6 +183,7 @@ public class DegenBank {
         this.cachedNFTs = new HashSet<>();
 
         this.setAcceptingTransactions(true);
+        LOGGER.info("Transaction processing initialised. Bot online.");
     }
 
     private void startTransactionProcessingThread() {
@@ -199,9 +196,21 @@ public class DegenBank {
                 this.getPendingTransactionLog().remove(transaction);
             }
             if (!this.isAcceptingTransactions() && this.getPendingTransactionLog().size() == 0) {
+                this.storeAllDegens();
+                this.storeAllNFTs();
                 threadPool.shutdown();
+                this.shutdown();
             }
         }), 5, 5, TimeUnit.SECONDS);
+    }
+
+    // ignore this I'm too lazy to think of an actual implementation
+    private void shutdown() {
+        while (true) {
+            if (this.getCachedDegens().size() == 0 && this.getCachedNFTs().size() == 0) {
+                System.exit(0);
+            }
+        }
     }
     //endregion
 
@@ -334,10 +343,24 @@ public class DegenBank {
     //region MongoDB - Storage (Setters, technically)
     public void storeDegen(Degen degen) {
         this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen, this.UPSERT_OPTS);
+        this.getCachedDegens().remove(degen);
+    }
+
+    public void storeAllDegens() {
+        for (Degen degen : this.getCachedDegens()) {
+            this.storeDegen(degen);
+        }
     }
 
     public void storeNFT(NFT nft) {
         this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft, this.UPSERT_OPTS);
+        this.getCachedNFTs().remove(nft);
+    }
+
+    public void storeAllNFTs() {
+        for (NFT nft : this.getCachedNFTs()) {
+            this.storeNFT(nft);
+        }
     }
     //endregion
 

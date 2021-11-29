@@ -131,4 +131,11 @@ public class EmbedUtils {
                 .addField("Value", DegenUtils.getDisplayBalance(transaction.getValue()), true)
                 .addField("Note", transaction.getNote(), false);
     }
+
+    public static EmbedBuilder getShutdownEmbed() {
+        return getEmbed()
+                .setColor(Color.getColor("#cc0000"))
+                .setTitle("Shutdown in Progress")
+                .setDescription("degenBank is currently not accepting any new transactions or cache entries.");
+    }
 }

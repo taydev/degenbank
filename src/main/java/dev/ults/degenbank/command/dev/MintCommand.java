@@ -29,8 +29,7 @@ public class MintCommand implements ICommand {
         Degen degen = this.getDegenById(this.getInstance().getClient().getSelfUser().getId());
         long mintVolume = Long.parseLong(args[0]);
         degen.setDegenCoinBalance(mintVolume);
-        DegenBank.INSTANCE.insertTransaction(user.getId(), DegenBank.INSTANCE.getClient().getSelfUser().getId(), mintVolume, "TEST MINTING - NOT " +
-                "OFFICIAL START");
+        DegenBank.INSTANCE.insertTransaction(user.getId(), DegenBank.INSTANCE.getClient().getSelfUser().getId(), mintVolume, "Initial mint.");
         channel.sendMessage(String.format("Action successful. %s has been minted and funnelled into the central wallet.",
                 DegenUtils.getDisplayBalance(mintVolume))).queue();
     }

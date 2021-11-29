@@ -30,6 +30,10 @@ public class SendCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
+        if (!this.getInstance().isAcceptingTransactions()) {
+            sendMessage(channel, EmbedUtils.getShutdownEmbed());
+            return;
+        }
         Degen payer = this.getDegenById(user.getId());
         User payeeUser = this.getUserById(args[0]);
         if (payeeUser == null || payeeUser.getId().equals(user.getId())) {

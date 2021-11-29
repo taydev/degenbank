@@ -26,6 +26,10 @@ public class NFTInfoCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
+        if (!this.getInstance().isAcceptingTransactions()) {
+            sendMessage(channel, EmbedUtils.getShutdownEmbed());
+            return;
+        }
         if (args.length != 1) {
             channel.sendMessage(EmbedUtils.getInvalidSyntaxEmbed(this).build()).queue();
             return;
