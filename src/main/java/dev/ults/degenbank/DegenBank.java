@@ -66,7 +66,6 @@ public class DegenBank {
 
     //region MongoDB Variables
     private final MongoClient MONGO_CLIENT;
-    private final FindOneAndReplaceOptions UPSERT_OPTS;
     private final CodecRegistry CODEC_REGISTRY;
     //endregion
 
@@ -89,7 +88,6 @@ public class DegenBank {
     public DegenBank() {
         this.ENV = Optional.ofNullable(System.getenv("ENV")).orElse("DEV");
         this.MONGO_CLIENT = new MongoClient();
-        this.UPSERT_OPTS = new FindOneAndReplaceOptions().upsert(true);
         this.CODEC_REGISTRY = CodecRegistries.fromRegistries(MongoClient.getDefaultCodecRegistry(),
                 CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true)
                         .register(ClassModel.builder(Degen.class).enableDiscriminator(true).build())
@@ -141,7 +139,7 @@ public class DegenBank {
 
     private void connectToDiscord() {
         try {
-            this.client = JDABuilder.create(this.token, Arrays.asList(GatewayIntent.values()))
+            this.client = JDABuilder.create(this.getToken(), Arrays.asList(GatewayIntent.values()))
                     .setAutoReconnect(true)
                     .setMemberCachePolicy(MemberCachePolicy.ALL)
                     .addEventListeners(new EventListener())
@@ -197,6 +195,7 @@ public class DegenBank {
                 this.getPendingTransactionLog().remove(transaction);
                 LOGGER.info("Transaction #{} processed ({} -> {}).", transaction.getTransactionId(), transaction.getPayerId(), transaction.getPayeeId());
             } else if (!this.isAcceptingTransactions()) {
+                LOGGER.info("Transaction acceptance policy found negative and transaction log is empty. Shutting down...");
                 this.shutdown();
             }
         }), 5, 5, TimeUnit.SECONDS);
@@ -212,8 +211,7 @@ public class DegenBank {
 
     // ignore this I'm too lazy to think of an actual implementation
     public void shutdown() {
-        this.storeAllDegens();
-        this.storeAllNFTs();
+        this.save();
         this.threadPool.shutdown();
         System.exit(0);
     }
@@ -347,8 +345,13 @@ public class DegenBank {
 
     //region MongoDB - Storage (Setters, technically)
     public void storeDegen(Degen degen) {
-        this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen, this.UPSERT_OPTS);
+        if (this.getDegens().find(Filters.eq("_id", degen.getId())).first() == null) {
+            this.getDegens().insertOne(degen);
+        } else {
+            this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen);
+        }
         this.getCachedDegens().remove(degen);
+        LOGGER.info("Stored cached degen {}.", degen.getId());
     }
 
     public void storeAllDegens() {
@@ -358,8 +361,13 @@ public class DegenBank {
     }
 
     public void storeNFT(NFT nft) {
-        this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft, this.UPSERT_OPTS);
+        if (this.getNFTs().find(Filters.eq("_id", nft.getName())).first() == null) {
+            this.getNFTs().insertOne(nft);
+        } else {
+            this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft);
+        }
         this.getCachedNFTs().remove(nft);
+        LOGGER.info("Stored cached NFT {}.", nft.getName());
     }
 
     public void storeAllNFTs() {
