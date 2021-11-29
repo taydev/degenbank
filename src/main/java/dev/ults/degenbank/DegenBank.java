@@ -350,7 +350,6 @@ public class DegenBank {
         } else {
             this.getDegens().findOneAndReplace(Filters.eq("_id", degen.getId()), degen);
         }
-        this.getCachedDegens().remove(degen);
         LOGGER.info("Stored cached degen {}.", degen.getId());
     }
 
@@ -366,7 +365,6 @@ public class DegenBank {
         } else {
             this.getNFTs().findOneAndReplace(Filters.eq("_id", nft.getName()), nft);
         }
-        this.getCachedNFTs().remove(nft);
         LOGGER.info("Stored cached NFT {}.", nft.getName());
     }
 
