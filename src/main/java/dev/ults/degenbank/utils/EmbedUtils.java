@@ -17,14 +17,9 @@ public class EmbedUtils {
                 .setTimestamp(LocalDateTime.now());
     }
 
-    public static EmbedBuilder getDefaultEmbed() {
-        return getEmbed()
-                .setColor(Color.getColor("#ff3300"));
-    }
-
     public static EmbedBuilder getSuccessEmbed(String title, String description) {
         return getEmbed()
-                .setColor(Color.getColor("#66ff00"))
+                .setColor(Color.getColor("#00d166"))
                 .setTitle("Success - " + title)
                 .setDescription(description);
     }
@@ -35,7 +30,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getErrorEmbed(String error, String description) {
         return getEmbed()
-                .setColor(Color.getColor("#cc0000"))
+                .setColor(Color.getColor("#a62019"))
                 .setTitle("Error - " + error)
                 .setDescription(description);
     }
@@ -51,7 +46,7 @@ public class EmbedUtils {
 
     public static MessageBuilder getPingDegenBalanceEmbed(User user, StringBuilder sb) {
         return new MessageBuilder().mention(user).setEmbed(getEmbed()
-                .setColor(Color.getColor("#66ffff"))
+                .setColor(Color.getColor("#0099e1"))
                 .setTitle(user.getName() + (user.getName().endsWith("s") ? "'" : "'s") + " Wallet")
                 .setDescription(sb.toString().trim())
                 .build());
@@ -73,7 +68,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getNFTMintEmbed(NFT nft) {
         return getEmbed()
-                .setColor(Color.getColor("#66ff99")) // note to self - figure out what colours are actually safe to put in embeds
+                .setColor(Color.getColor("#00c09a")) // note to self - figure out what colours are actually safe to put in embeds
                 .setTitle("New NFT minted!")
                 .addField("NFT Name", String.format("`%s`", nft.getName()), true)
                 .addField("NFT Owner", String.format("<@%s>", nft.getCreatorID()), true)
@@ -83,7 +78,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getNFTSaleEmbed(NFT nft, String buyerId) {
         return getEmbed()
-                .setColor(Color.getColor("#ffffcc")) // note to self - figure out what colours are actually safe to put in embeds
+                .setColor(Color.getColor("#ffffff")) // note to self - figure out what colours are actually safe to put in embeds
                 .setTitle("NFT Purchased")
                 .addField("NFT Name", String.format("`%s`", nft.getName()), true)
                 .addField("New NFT Owner", String.format("<@%s>", buyerId), true)
@@ -92,7 +87,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getNFTTransferEmbed(String nftName, String sellerId, String buyerId) {
         return getEmbed()
-                .setColor(Color.getColor("#cc0099")) // note to self - figure out what colours are actually safe to put in embeds
+                .setColor(Color.getColor("#7a2f8f")) // note to self - figure out what colours are actually safe to put in embeds
                 .setTitle("NFT Transferred")
                 .addField("NFT Name", "`" + nftName + "`", true)
                 .addField("Past NFT Owner", String.format("<@%s>", sellerId), true)
@@ -112,11 +107,11 @@ public class EmbedUtils {
         MessageBuilder builder = new MessageBuilder().mention(user);
         EmbedBuilder embed = getEmbed();
         if (nft.isForSale()) {
-            embed.setColor(Color.getColor("#ffffcc"))
+            embed.setColor(Color.getColor("#91a6a6"))
                     .setDescription(String.format("You have set the NFT `%s` to be sale for %s. Run `-sellnft %s` to cancel this sell order.",
                             nft.getName(), nft.getSalePrice(), nft.getName()));
         } else {
-            embed.setColor(Color.getColor("#0000cc"))
+            embed.setColor(Color.getColor("#006798"))
                     .setDescription(String.format("You have cancelled the sell order for the NFT `%s`.", nft.getName()));
         }
         return builder.setEmbed(embed.build());
@@ -124,7 +119,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getTransactionEmbed(Transaction transaction) {
         return getEmbed()
-                .setColor(Color.getColor("#ff6600"))
+                .setColor(Color.getColor("#f8c300"))
                 .setTitle("Transaction #" + DegenUtils.getFormattedBalance(transaction.getTransactionId()))
                 .addField("Payer", String.format("<@%s>", transaction.getPayerId()), true)
                 .addField("Payee", String.format("<@%s>", transaction.getPayeeId()), true)
@@ -134,7 +129,7 @@ public class EmbedUtils {
 
     public static EmbedBuilder getShutdownEmbed() {
         return getEmbed()
-                .setColor(Color.getColor("#cc0000"))
+                .setColor(Color.getColor("#a62019"))
                 .setTitle("Shutdown in Progress")
                 .setDescription("degenBank is currently not accepting any new transactions or cache entries.");
     }

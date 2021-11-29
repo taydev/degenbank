@@ -25,6 +25,5 @@ public class ShutdownCommand implements ICommand {
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
         channel.sendMessage("Cleaning up and shutting down...").queue();
         this.getInstance().setAcceptingTransactions(false);
-
     }
 }

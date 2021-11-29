@@ -198,8 +198,8 @@ public class DegenBank {
             if (!this.isAcceptingTransactions() && this.getPendingTransactionLog().size() == 0) {
                 this.storeAllDegens();
                 this.storeAllNFTs();
-                threadPool.shutdown();
                 this.shutdown();
+                threadPool.shutdown();
             }
         }), 5, 5, TimeUnit.SECONDS);
     }
@@ -208,9 +208,10 @@ public class DegenBank {
     private void shutdown() {
         while (true) {
             if (this.getCachedDegens().size() == 0 && this.getCachedNFTs().size() == 0) {
-                System.exit(0);
+                break;
             }
         }
+        System.exit(0);
     }
     //endregion
 
