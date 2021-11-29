@@ -25,7 +25,7 @@ public class SendCommand implements ICommand {
 
     @Override
     public String[] getAliases() {
-        return new String[]{"transfer", "transfur", "give"};
+        return new String[]{"transfer", "transfur", "give", "pay"};
     }
 
     @Override
