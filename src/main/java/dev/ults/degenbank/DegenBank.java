@@ -318,13 +318,13 @@ public class DegenBank {
     }
 
     public NFT getNFTById(String id) {
-        id = id.toLowerCase();
-        Optional<NFT> opt = this.getCachedNFTs().stream().filter(nft -> nft.getName().equals(id)).findFirst();
+        String lowercaseId = id.toLowerCase();
+        Optional<NFT> opt = this.getCachedNFTs().stream().filter(nft -> nft.getName().equals(lowercaseId)).findFirst();
         if (opt.isPresent()) {
             return opt.get();
         } else {
             NFT nft = this.getNFTs()
-                    .find(Filters.eq("_id", id))
+                    .find(Filters.eq("_id", lowercaseId))
                     .first();
             if (nft != null) {
                 this.getCachedNFTs().add(nft);
