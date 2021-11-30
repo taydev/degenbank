@@ -34,6 +34,10 @@ public class SendCommand implements ICommand {
             sendMessage(channel, EmbedUtils.getShutdownEmbed());
             return;
         }
+        if (args.length < 2) {
+            sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
+            return;
+        }
         Degen payer = this.getDegenById(user.getId());
         User payeeUser = this.getUserById(args[0]);
         if (payeeUser == null || payeeUser.getId().equals(user.getId())) {
@@ -43,7 +47,7 @@ public class SendCommand implements ICommand {
         Degen payee = this.getDegenById(payeeUser.getId());
         long paymentAmount = 0;
         try {
-            paymentAmount = Math.abs(Long.parseLong(args[1]));
+            paymentAmount = Math.abs(Long.parseLong(args[1].replaceAll("[^0-9]", "")));
             if (paymentAmount <= 0) {
                 sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value", "A zero (or negative) amount of DGN cannot be sent."));
                 return;

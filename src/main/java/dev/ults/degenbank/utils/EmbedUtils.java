@@ -52,6 +52,13 @@ public class EmbedUtils {
                 .build());
     }
 
+    public static EmbedBuilder getDegenLeaderboardEmbed(StringBuilder sb) {
+        return getEmbed()
+                .setColor(Color.decode("#66ffff"))
+                .setTitle("degenBank - Balance Leaderboard")
+                .setDescription(sb.toString().trim());
+    }
+
     public static EmbedBuilder getNFTInfoEmbed(NFT nft, String nftOwnerId, User user) {
         return getEmbed()
                 .setColor(Color.decode("#D89A9E"))
@@ -109,7 +116,7 @@ public class EmbedUtils {
         if (nft.isForSale()) {
             embed.setColor(Color.decode("#ffffcc"))
                     .setDescription(String.format("You have set the NFT `%s` to be sale for %s. Run `-sellnft %s` to cancel this sell order.",
-                            nft.getName(), nft.getSalePrice(), nft.getName()));
+                            nft.getName(), DegenUtils.getDisplayBalance(nft.getSalePrice()), nft.getName()));
         } else {
             embed.setColor(Color.decode("#0000cc"))
                     .setDescription(String.format("You have cancelled the sell order for the NFT `%s`.", nft.getName()));

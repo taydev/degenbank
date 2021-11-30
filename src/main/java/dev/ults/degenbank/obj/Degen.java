@@ -1,5 +1,6 @@
 package dev.ults.degenbank.obj;
 
+import dev.ults.degenbank.DegenBank;
 import org.bson.codecs.pojo.annotations.BsonCreator;
 import org.bson.codecs.pojo.annotations.BsonId;
 import org.bson.codecs.pojo.annotations.BsonIgnore;
@@ -72,6 +73,17 @@ public class Degen {
 
     public void removeToken(String name) {
         this.getOwnedTokens().remove(name);
+    }
+
+    public long getTotalBalance() {
+        long balance = this.getDegenCoinBalance();
+        if (this.getOwnedTokens().size() > 0) {
+            for (String s : this.getOwnedTokens()) {
+                NFT nft = DegenBank.INSTANCE.getNFTById(s);
+                balance += nft.getLastSalePrice();
+            }
+        }
+        return balance;
     }
 
 }

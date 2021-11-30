@@ -30,7 +30,7 @@ public class EventListener extends ListenerAdapter {
         String messageContent = e.getMessage().getContentRaw();
         if (!messageContent.startsWith(DegenBank.INSTANCE.getPrefix())) return;
 
-        messageContent = messageContent.substring(DegenBank.INSTANCE.getPrefix().length());
+        messageContent = messageContent.substring(DegenBank.INSTANCE.getPrefix().length()).replaceAll(" {2,}", " ");
         String[] parts = messageContent.split(" ");
         String commandString = parts[0];
         String[] args = Arrays.stream(parts).skip(1).toArray(String[]::new);

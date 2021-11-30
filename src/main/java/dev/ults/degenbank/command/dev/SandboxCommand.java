@@ -23,6 +23,6 @@ public class SandboxCommand implements ICommand {
 
     @Override
     public void execute(User user, Message message, MessageChannel channel, String command, String[] args) {
-        channel.sendMessage(message.getAttachments().get(0).getProxyUrl()).queue();
+
     }
 }

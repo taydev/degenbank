@@ -39,7 +39,12 @@ public interface ICommand {
     }
 
     default User getUserById(String id) {
-        return this.getInstance().getClient().getUserById(id.replaceAll("[^0-9]", ""));
+        id = id.replaceAll("[^0-9]", "");
+        if (!id.equals("")) {
+            return this.getInstance().getClient().getUserById(id);
+        } else {
+            return null;
+        }
     }
 
     default NFT getNFTById(String id) {

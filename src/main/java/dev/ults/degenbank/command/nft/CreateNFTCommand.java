@@ -23,7 +23,7 @@ public class CreateNFTCommand implements ICommand {
 
     @Override
     public String[] getAliases() {
-        return new String[]{"cnft", "makenft", "mnft", "newnft", "nnft"};
+        return new String[]{"cnft", "makenft", "mnft", "newnft", "nnft", "mint", "mintnft"};
     }
 
     @Override
@@ -42,7 +42,7 @@ public class CreateNFTCommand implements ICommand {
             return;
         }
 
-        String name = args[0];
+        String name = args[0].toLowerCase();
         if (this.getNFTById(name) != null) {
             sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Name Already Taken", "An NFT by this name already exists."));
             return;
@@ -52,9 +52,9 @@ public class CreateNFTCommand implements ICommand {
         long value = 0;
         try {
             value = Math.abs(Long.parseLong(args[1]));
-            // iirc Math#abs(Long) can't round a max neg so I'm counting below 0
-            if (value <= 0) {
-                sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value", "An NFT cannot be minted with no initial value."));
+            // people keep trying to break the system, 25 min it is :(
+            if (value <= 25) {
+                sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Value", "An NFT cannot be minted below the set initial value (25)."));
                 return;
             }
         } catch (NumberFormatException e) {

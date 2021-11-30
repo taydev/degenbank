@@ -51,6 +51,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -178,8 +179,8 @@ public class DegenBank {
         this.initialisePendingTransactionLog();
         this.startTransactionProcessingThread();
 
-        this.cachedDegens = new HashSet<>();
-        this.cachedNFTs = new HashSet<>();
+        this.cachedDegens = ConcurrentHashMap.newKeySet();
+        this.cachedNFTs = ConcurrentHashMap.newKeySet();
 
         this.setAcceptingTransactions(true);
         LOGGER.info("Transaction processing initialised. Bot online.");
@@ -199,14 +200,17 @@ public class DegenBank {
                 this.shutdown();
             }
         }), 5, 5, TimeUnit.SECONDS);
-        threadPool.scheduleAtFixedRate(new Thread(this::save), 1, 10, TimeUnit.MINUTES);
+        threadPool.scheduleAtFixedRate(new Thread(this::save), 1, 5, TimeUnit.MINUTES);
     }
 
     public void save() {
         LOGGER.info("Saving all cached entities...");
         this.storeAllDegens();
         this.storeAllNFTs();
-        LOGGER.info("Cached entities saved.");
+        LOGGER.info("Cached entities saved. Clearing cache...");
+        this.getCachedDegens().clear();
+        this.getCachedNFTs().clear();
+        LOGGER.info("Cache cleared.");
     }
 
     // ignore this I'm too lazy to think of an actual implementation
@@ -329,6 +333,14 @@ public class DegenBank {
     }
 
     public String getNFTOwnerId(NFT nft) {
+        // check cache
+        // actually not sure whether or not I should just force a save here but w/e
+        // also I really need to work out how I can clear the cache safely
+        for (Degen degen : this.getCachedDegens()) {
+            if (degen.getOwnedTokens().contains(nft.getName())) {
+                return degen.getId();
+            }
+        }
         Degen degen = this.getDegens()
                 .find(Filters.in("owned_tokens", nft.getName()))
                 .first();

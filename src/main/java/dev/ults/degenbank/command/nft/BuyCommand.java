@@ -34,6 +34,7 @@ public class BuyCommand implements ICommand {
         }
         if (args.length != 1) {
             sendMessage(channel, EmbedUtils.getInvalidSyntaxEmbed(this));
+            return;
         }
 
         Degen degen = this.getDegenById(user.getId());
@@ -55,7 +56,7 @@ public class BuyCommand implements ICommand {
                     DegenBank.INSTANCE.postNFTBuy(nft, user.getId());
                 } else {
                     sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Not Enough DGN",
-                            String.format("You do not have enough DGN to complete this purchase!\n\n**DGN Needed:** %s\n**You have:**%s",
+                            String.format("You do not have enough DGN to complete this purchase!\n\n**DGN Needed:** %s\n**You have:** %s",
                                     DegenUtils.getDisplayBalance(nft.getSalePrice()), DegenUtils.getDisplayBalance(degen.getDegenCoinBalance()))));
                 }
             } else {
