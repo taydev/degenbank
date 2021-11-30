@@ -17,6 +17,7 @@ import dev.ults.degenbank.command.dev.SandboxCommand;
 import dev.ults.degenbank.command.dev.SaveCommand;
 import dev.ults.degenbank.command.dev.ShutdownCommand;
 import dev.ults.degenbank.command.kromer.BalanceCommand;
+import dev.ults.degenbank.command.kromer.BalanceTopCommand;
 import dev.ults.degenbank.command.kromer.SendCommand;
 import dev.ults.degenbank.command.nft.BuyCommand;
 import dev.ults.degenbank.command.nft.CreateNFTCommand;
@@ -167,6 +168,7 @@ public class DegenBank {
         this.registerCommand(new ShutdownCommand());
         // -- Kromer Commands
         this.registerCommand(new BalanceCommand());
+        this.registerCommand(new BalanceTopCommand());
         this.registerCommand(new SendCommand());
         // -- NFT Commands --
         this.registerCommand(new BuyCommand());
