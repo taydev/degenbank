@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -317,6 +318,7 @@ public class DegenBank {
     }
 
     public NFT getNFTById(String id) {
+        id = id.toLowerCase();
         Optional<NFT> opt = this.getCachedNFTs().stream().filter(nft -> nft.getName().equals(id)).findFirst();
         if (opt.isPresent()) {
             return opt.get();
