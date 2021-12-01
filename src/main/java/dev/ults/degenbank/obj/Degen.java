@@ -16,7 +16,7 @@ public class Degen {
     private final String id;
     @BsonProperty("owned_tokens")
     // was debating about renaming this to "owned NFTs" but honestly token is still accurate considering NFT = "non-fungible token"
-    private final List<String> ownedTokens;
+    private List<String> ownedTokens;
     @BsonProperty("degen_coin_balance")
     private long degenCoinBalance;
 
@@ -65,6 +65,10 @@ public class Degen {
     @BsonProperty("owned_tokens")
     public List<String> getOwnedTokens() {
         return this.ownedTokens;
+    }
+
+    public void setOwnedTokens(List<String> ownedTokens) {
+        this.ownedTokens = ownedTokens;
     }
 
     public void addToken(String name) {

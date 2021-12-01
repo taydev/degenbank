@@ -31,10 +31,11 @@ public class SandboxCommand implements ICommand {
         MongoCursor<Degen> cursor = this.getInstance().getDegens().find().cursor();
         while (cursor.hasNext()) {
             Degen degen = cursor.next();
+            List<String> newTokens = new ArrayList<>();
             for (String s : degen.getOwnedTokens()) {
-                degen.removeToken(s);
-                degen.addToken(s.toLowerCase());
+                newTokens.add(s.toLowerCase());
             }
+            degen.setOwnedTokens(newTokens);
             this.getInstance().storeDegen(degen);
         }
     }

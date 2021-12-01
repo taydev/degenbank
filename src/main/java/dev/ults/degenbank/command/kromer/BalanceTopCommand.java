@@ -40,6 +40,7 @@ public class BalanceTopCommand implements ICommand{
         List<Degen> degensWithBalance = new ArrayList<>();
         while (cursor.hasNext()) {
             Degen degen = cursor.next();
+            if (degen.getId().equals("912870069678260267")) continue;
             if (degen.getTotalBalance() >= 0) {
                 degensWithBalance.add(degen);
             }
@@ -53,9 +54,16 @@ public class BalanceTopCommand implements ICommand{
                 sendMessage(channel, EmbedUtils.getPingErrorEmbed(user, "Invalid Internal User", "Tell ults the baltop command is broken."));
                 return;
             }
-            sb.append("**").append(i+1).append("**: ")
-                    .append(targetUser.getName()).append("#").append(targetUser.getDiscriminator())
-                    .append(" (").append(DegenUtils.getDisplayBalance(target.getTotalBalance())).append(")\n");
+            sb.append("**").append(i+1).append("**: ");
+            if (i < 3) {
+                sb.append("**");
+            }
+            sb.append(targetUser.getName()).append("#").append(targetUser.getDiscriminator())
+                    .append(" (").append(DegenUtils.getDisplayBalance(target.getTotalBalance())).append(")");
+            if (i < 3) {
+                sb.append("**");
+            }
+            sb.append("\n");
         }
         sendMessage(channel, EmbedUtils.getDegenLeaderboardEmbed(sb));
     }
