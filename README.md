@@ -1,3 +1,9 @@
+# PROJECT HAS BEEN ARCHIVED DUE TO DISCONNECT FROM COMMUNITY THIS PROJECT WAS BUILT FOR - NO LONGER MAINTAINED
+
+
+
+
+
 This is mostly just on here because I needed an easy way to move files from my PC to my RPi (+ version control). But, here we are.
 
 # degenBank - A bank by the brainless, for the brainless.
